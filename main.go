@@ -21,7 +21,13 @@ type Env struct {
 	DiscordEndpoint   string
 }
 
+type Request struct {
+	name      string
+	jsonBytes []byte
+}
+
 type Result struct {
+	Name    string
 	Status  int64
 	Message *string
 }
@@ -46,12 +52,13 @@ func loadJSON(filename string) []byte {
 	return jsonFile
 }
 
-func loadCheckRequest(filename string) []byte {
-	jsonFile := loadJSON(fmt.Sprintf("request/%s.json", filename))
+func loadCheckRequest(text string) []byte {
+	jsonFile := loadJSON("request/mock.json")
 	jsonData, err := model.UnmarshalRakutan(jsonFile)
 	if err != nil {
 		log.Fatal(err)
 	}
+	jsonData.Events[0].Message.Text = text
 
 	jsonBytes, err := jsonData.Marshal()
 	if err != nil {
@@ -66,33 +73,42 @@ func generateSignature(env Env, body []byte) string {
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
 }
 
-func sendRequest(resultChan chan *Result, env Env, jsonBytes []byte) {
-	req, err := http.NewRequest("POST", env.KRBEndpoint, bytes.NewBuffer(jsonBytes))
+func toPtr(s string) *string {
+	return &s
+}
+
+func sendRequest(resultChan chan *Result, env Env, r Request) {
+	req, err := http.NewRequest("POST", env.KRBEndpoint, bytes.NewBuffer(r.jsonBytes))
 	if err != nil {
-		resultChan <- nil
-		panic("Error")
+		resultChan <- &Result{Name: r.name, Status: 9996, Message: toPtr("Could not create request")}
+		return
 	}
 
-	req.Header.Set("X-Line-Signature", generateSignature(env, jsonBytes))
+	req.Header.Set("X-Line-Signature", generateSignature(env, r.jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := new(http.Client)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		resultChan <- nil
-		panic("Error2")
+		resultChan <- &Result{Name: r.name, Status: 9997, Message: toPtr("Could not connect to server")}
+		return
 	}
 	defer resp.Body.Close()
 
 	byteArray, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		resultChan <- nil
-		panic("Error")
+		resultChan <- &Result{Name: r.name, Status: 9998, Message: toPtr("Could not read body")}
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		resultChan <- &Result{Name: r.name, Status: 9999, Message: toPtr(fmt.Sprintf("Invalid status code : %d", resp.StatusCode))}
+		return
 	}
 
 	parsedBody, _ := model.UnmarshalResponse(byteArray)
-	resultChan <- &Result{Status: parsedBody.Status, Message: parsedBody.Text}
+	resultChan <- &Result{Name: r.name, Status: parsedBody.Status, Message: parsedBody.Text}
 }
 
 func sendWebhook(whurl string, content string) {
@@ -124,9 +140,14 @@ func main() {
 
 	env := loadEnv()
 
-	checkList := [][]byte{
-		loadCheckRequest("mock_search"),
-		loadCheckRequest("mock_getfav"),
+	checkList := []Request{
+		{name: "自然地理学", jsonBytes: loadCheckRequest("自然地理学")},
+		{name: "お気に入り取得", jsonBytes: loadCheckRequest("お気に入り")},
+		{name: "楽単おみくじ", jsonBytes: loadCheckRequest("おみくじ")},
+		{name: "楽単おみくじ", jsonBytes: loadCheckRequest("おみくじ")},
+		{name: "鬼単おみくじ", jsonBytes: loadCheckRequest("鬼単おみくじ")},
+		{name: "鬼単おみくじ", jsonBytes: loadCheckRequest("鬼単おみくじ")},
+		{name: "#12345", jsonBytes: loadCheckRequest("#12345")},
 	}
 
 	for _, v := range checkList {
@@ -134,15 +155,15 @@ func main() {
 	}
 
 	for _, _ = range checkList {
+		errorMsg := ""
 		result := <-resultsChan
-		fmt.Print(result.Status)
 		if result.Message != nil {
-			fmt.Println(*result.Message)
+			errorMsg = *result.Message
 		}
 
 		// Send Discord Webhook
 		if result.Status != 2000 {
-			errorMsg := fmt.Sprintf("[Error] Code: %d \n Message: %s", result.Status, *result.Message)
+			errorMsg := fmt.Sprintf("[Error][%s] Code: %d \n Message: %s", result.Name, result.Status, errorMsg)
 			sendWebhook(env.DiscordEndpoint, errorMsg)
 		}
 	}

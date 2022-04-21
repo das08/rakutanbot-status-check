@@ -3,6 +3,9 @@ name: rakutanbot-check
 on:
   schedule:
     - cron: '0 22 * * *'
+    
+  workflow_dispatch:
+    branches: [ master ]
 
 jobs:
 

@@ -1,0 +1,33 @@
+name: rakutanbot-check
+
+on:
+  schedule:
+    - cron: '0 22 * * *'
+    
+  workflow_dispatch:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.16
+    
+    - name: Install Dependency
+      run: go mod download && go mod verify
+      
+    - name: Create env file
+      run: |
+          touch .env
+          echo LINE_CHANNEL_SECRET=${{ secrets.LINE_CHANNEL_SECRET }} >> .env
+          echo KRB_ENDPOINT=${{ secrets.KRB_ENDPOINT }} >> .env
+          echo DISCORD_WEBHOOK=${{ secrets.DISCORD_WEBHOOK }} >> .env
+
+    - name: Health Check
+      run: go run main.go

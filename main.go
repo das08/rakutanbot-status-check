@@ -19,6 +19,11 @@ type Env struct {
 	KRBEndpoint       string
 }
 
+type Result struct {
+	Status  int64
+	Message *string
+}
+
 func loadEnv() Env {
 	err := godotenv.Load()
 	if err != nil {
@@ -38,15 +43,8 @@ func loadJSON(filename string) []byte {
 	return jsonFile
 }
 
-func generateSignature(env Env, body []byte) string {
-	hash := hmac.New(sha256.New, []byte(env.LineChannelSecret))
-	hash.Write(body)
-	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
-}
-
-func main() {
-	env := loadEnv()
-	jsonFile := loadJSON("request/mock_getfav.json")
+func loadCheckRequest(filename string) []byte {
+	jsonFile := loadJSON(fmt.Sprintf("request/%s.json", filename))
 	jsonData, err := model.UnmarshalRakutan(jsonFile)
 	if err != nil {
 		log.Fatal(err)
@@ -56,10 +54,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	return jsonBytes
+}
 
-	endpoint := env.KRBEndpoint
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes))
+func generateSignature(env Env, body []byte) string {
+	hash := hmac.New(sha256.New, []byte(env.LineChannelSecret))
+	hash.Write(body)
+	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
+}
+
+func sendRequest(resultChan chan *Result, env Env, jsonBytes []byte) {
+	req, err := http.NewRequest("POST", env.KRBEndpoint, bytes.NewBuffer(jsonBytes))
 	if err != nil {
+		resultChan <- nil
 		panic("Error")
 	}
 
@@ -70,18 +77,44 @@ func main() {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		resultChan <- nil
 		panic("Error2")
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("status: ", resp.Status)
-
 	byteArray, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		resultChan <- nil
 		panic("Error")
 	}
 
 	parsedBody, _ := model.UnmarshalResponse(byteArray)
-	fmt.Printf("%#v, %s", parsedBody.Status, *parsedBody.Text)
+	resultChan <- &Result{Status: parsedBody.Status, Message: parsedBody.Text}
+}
 
+func main() {
+	// Create channels for go routine
+	resultsChan := make(chan *Result, 5)
+
+	env := loadEnv()
+
+	checkList := [][]byte{
+		loadCheckRequest("mock_search"),
+		loadCheckRequest("mock_getfav"),
+	}
+
+	for _, v := range checkList {
+		go sendRequest(resultsChan, env, v)
+	}
+
+	for _, _ = range checkList {
+		result := <-resultsChan
+		fmt.Print(result.Status)
+		if result.Message != nil {
+			fmt.Println(*result.Message)
+		}
+	}
+
+	// Close channels
+	close(resultsChan)
 }

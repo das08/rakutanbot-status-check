@@ -1,0 +1,24 @@
+{
+  "destination":"Ufab9da979accde2927154cfd153f2fe9",
+  "events":[
+    {
+      "type":"message",
+      "message":{
+        "type":"text",
+        "id":"15955241648900",
+        "text":"おみくじ"
+      },
+      "webhookEventId":"01G15S4GEN3PYN1QAVKR706P8K",
+      "deliveryContext":{
+        "isRedelivery":false
+      },
+      "timestamp":1650535317544,
+      "source":{
+        "type":"user",
+        "userId":"MOCK_USER_DAS08"
+      },
+      "replyToken":"f5c0089d22cc425db33d2c7c86f94dff",
+      "mode":"active"
+    }
+  ]
+}

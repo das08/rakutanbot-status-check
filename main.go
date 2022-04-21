@@ -170,5 +170,4 @@ func main() {
 
 	// Close channels
 	close(resultsChan)
-	sendWebhook(env.DiscordEndpoint, "fin")
 }

@@ -18,6 +18,9 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: 1.16
+    
+    - name: Install Dependency
+      run: go mod download && go mod verify
 
     - name: Health Check
       run: go run main.go

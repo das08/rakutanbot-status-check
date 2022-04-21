@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -9,11 +10,13 @@ import (
 	"github.com/joho/godotenv"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 )
 
 type Env struct {
 	LineChannelSecret string
+	KRBEndpoint       string
 }
 
 func loadEnv() Env {
@@ -23,6 +26,7 @@ func loadEnv() Env {
 	}
 	return Env{
 		LineChannelSecret: os.Getenv("LINE_CHANNEL_SECRET"),
+		KRBEndpoint:       os.Getenv("KRB_ENDPOINT"),
 	}
 }
 
@@ -53,6 +57,31 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(generateSignature(env, jsonBytes))
+	endpoint := env.KRBEndpoint
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		panic("Error")
+	}
+
+	req.Header.Set("X-Line-Signature", generateSignature(env, jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := new(http.Client)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		panic("Error2")
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("status: ", resp.Status)
+
+	byteArray, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic("Error")
+	}
+
+	parsedBody, _ := model.UnmarshalResponse(byteArray)
+	fmt.Printf("%#v, %s", parsedBody.Status, *parsedBody.Text)
 
 }

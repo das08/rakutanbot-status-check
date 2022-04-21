@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/das08/rakutanbot-status-check/model"
 	"github.com/joho/godotenv"
@@ -17,6 +18,7 @@ import (
 type Env struct {
 	LineChannelSecret string
 	KRBEndpoint       string
+	DiscordEndpoint   string
 }
 
 type Result struct {
@@ -32,6 +34,7 @@ func loadEnv() Env {
 	return Env{
 		LineChannelSecret: os.Getenv("LINE_CHANNEL_SECRET"),
 		KRBEndpoint:       os.Getenv("KRB_ENDPOINT"),
+		DiscordEndpoint:   os.Getenv("DISCORD_WEBHOOK"),
 	}
 }
 
@@ -92,6 +95,29 @@ func sendRequest(resultChan chan *Result, env Env, jsonBytes []byte) {
 	resultChan <- &Result{Status: parsedBody.Status, Message: parsedBody.Text}
 }
 
+func sendWebhook(whurl string, content string) {
+	dw := &model.DiscordWebhook{UserName: "Status Check", Content: content}
+	j, err := json.Marshal(dw)
+	if err != nil {
+		fmt.Println("json err:", err)
+		return
+	}
+
+	req, err := http.NewRequest("POST", whurl, bytes.NewBuffer(j))
+	if err != nil {
+		fmt.Println("new request err:", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := http.Client{}
+	_, err = client.Do(req)
+	if err != nil {
+		fmt.Println("client err:", err)
+		return
+	}
+}
+
 func main() {
 	// Create channels for go routine
 	resultsChan := make(chan *Result, 5)
@@ -112,6 +138,12 @@ func main() {
 		fmt.Print(result.Status)
 		if result.Message != nil {
 			fmt.Println(*result.Message)
+		}
+
+		// Send Discord Webhook
+		if result.Status != 2000 {
+			errorMsg := fmt.Sprintf("[Error] Code: %d \n Message: %s", result.Status, *result.Message)
+			sendWebhook(env.DiscordEndpoint, errorMsg)
 		}
 	}
 

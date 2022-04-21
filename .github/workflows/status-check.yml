@@ -23,7 +23,7 @@ jobs:
       run: go mod download && go mod verify
       
     - name: Create env file
-        run: |
+      run: |
           touch .env
           echo LINE_CHANNEL_SECRET=${{ secrets.LINE_CHANNEL_SECRET }} >> .env
           echo KRB_ENDPOINT=${{ secrets.KRB_ENDPOINT }} >> .env

@@ -21,6 +21,13 @@ jobs:
     
     - name: Install Dependency
       run: go mod download && go mod verify
+      
+    - name: Create env file
+        run: |
+          touch .env
+          echo LINE_CHANNEL_SECRET=${{ secrets.LINE_CHANNEL_SECRET }} >> .env
+          echo KRB_ENDPOINT=${{ secrets.KRB_ENDPOINT }} >> .env
+          echo DISCORD_WEBHOOK=${{ secrets.DISCORD_WEBHOOK }} >> .env
 
     - name: Health Check
       run: go run main.go

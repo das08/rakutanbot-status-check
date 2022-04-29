@@ -167,7 +167,7 @@ func main() {
 			sendWebhook(env.DiscordEndpoint, errorMsg)
 			fmt.Println(errorMsg)
 		} else {
-			fmt.Printf("ok: %s\n", result.Name)	
+			fmt.Printf("ok: %s, code: %d\n", result.Name, result.Status);
 		}
 	}
 

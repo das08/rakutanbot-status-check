@@ -165,6 +165,9 @@ func main() {
 		if result.Status != 2000 {
 			errorMsg := fmt.Sprintf("[Error][%s] Code: %d \n Message: %s", result.Name, result.Status, errorMsg)
 			sendWebhook(env.DiscordEndpoint, errorMsg)
+			fmt.Println(errorMsg)
+		} else {
+			fmt.Printf("ok: %s\n", result.Name)	
 		}
 	}
 

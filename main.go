@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 type Env struct {
@@ -89,6 +90,8 @@ func sendRequest(resultChan chan *Result, env Env, r Request) {
 
 	client := new(http.Client)
 
+	startTime := time.Now()
+
 	resp, err := client.Do(req)
 	if err != nil {
 		resultChan <- &Result{Name: r.name, Status: 9997, Message: toPtr("Could not connect to server")}
@@ -101,14 +104,20 @@ func sendRequest(resultChan chan *Result, env Env, r Request) {
 		resultChan <- &Result{Name: r.name, Status: 9998, Message: toPtr("Could not read body")}
 		return
 	}
+	duration := time.Now().Sub(startTime).Milliseconds()
 
 	if resp.StatusCode != 200 {
 		resultChan <- &Result{Name: r.name, Status: 9999, Message: toPtr(fmt.Sprintf("Invalid status code : %d", resp.StatusCode))}
 		return
 	}
 
+	if duration > 1000 {
+		resultChan <- &Result{Name: r.name, Status: 9999, Message: toPtr(fmt.Sprintf("Response time too long : %d", duration))}
+		return
+	}
+
 	parsedBody, _ := model.UnmarshalResponse(byteArray)
-	resultChan <- &Result{Name: r.name, Status: parsedBody.Status, Message: parsedBody.Text}
+	resultChan <- &Result{Name: r.name, Status: int64(resp.StatusCode), Message: parsedBody.Text}
 }
 
 func sendWebhook(whurl string, content string) {
@@ -142,11 +151,12 @@ func main() {
 
 	checkList := []Request{
 		{name: "自然地理学", jsonBytes: loadCheckRequest("自然地理学")},
+		{name: "電気", jsonBytes: loadCheckRequest("電気")},
+		{name: "%地理学", jsonBytes: loadCheckRequest("%地理学")},
 		{name: "お気に入り取得", jsonBytes: loadCheckRequest("お気に入り")},
 		{name: "楽単おみくじ", jsonBytes: loadCheckRequest("おみくじ")},
-		{name: "楽単おみくじ", jsonBytes: loadCheckRequest("おみくじ")},
 		{name: "鬼単おみくじ", jsonBytes: loadCheckRequest("鬼単おみくじ")},
-		{name: "鬼単おみくじ", jsonBytes: loadCheckRequest("鬼単おみくじ")},
+		{name: "10連おみくじ", jsonBytes: loadCheckRequest("10連おみくじ")},
 		{name: "#12345", jsonBytes: loadCheckRequest("#12345")},
 	}
 
@@ -162,12 +172,12 @@ func main() {
 		}
 
 		// Send Discord Webhook
-		if result.Status != 2000 {
+		if result.Status != 200 {
 			errorMsg := fmt.Sprintf("[Error][%s] Code: %d \n Message: %s", result.Name, result.Status, errorMsg)
 			sendWebhook(env.DiscordEndpoint, errorMsg)
 			fmt.Println(errorMsg)
 		} else {
-			fmt.Printf("ok: %s, code: %d\n", result.Name, result.Status);
+			fmt.Printf("ok: %s, code: %d\n", result.Name, result.Status)
 		}
 	}
 

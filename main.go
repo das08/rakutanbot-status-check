@@ -98,13 +98,13 @@ func sendRequest(resultChan chan *Result, env Env, r Request) {
 		return
 	}
 	defer resp.Body.Close()
+	duration := time.Now().Sub(startTime).Milliseconds()
 
 	byteArray, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		resultChan <- &Result{Name: r.name, Status: 9998, Message: toPtr("Could not read body")}
 		return
 	}
-	duration := time.Now().Sub(startTime).Milliseconds()
 
 	if resp.StatusCode != 200 {
 		resultChan <- &Result{Name: r.name, Status: 9999, Message: toPtr(fmt.Sprintf("Invalid status code : %d", resp.StatusCode))}

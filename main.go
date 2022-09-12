@@ -99,6 +99,7 @@ func sendRequest(resultChan chan *Result, env Env, r Request) {
 	}
 	defer resp.Body.Close()
 	duration := time.Now().Sub(startTime).Milliseconds()
+	fmt.Println(r.name, ":", duration, "ms")
 
 	byteArray, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

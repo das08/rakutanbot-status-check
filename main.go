@@ -112,7 +112,7 @@ func sendRequest(resultChan chan *Result, env Env, r Request) {
 		return
 	}
 
-	if duration > 1000 {
+	if duration > 2000 {
 		resultChan <- &Result{Name: r.name, Status: 9999, Message: toPtr(fmt.Sprintf("Response time too long : %d", duration))}
 		return
 	}
